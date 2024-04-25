@@ -10,7 +10,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from time import time
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, pairwise_distances
+from sklearn.metrics import (
+    accuracy_score,
+    recall_score,
+    precision_score,
+    f1_score,
+    pairwise_distances,
+)
 from sklearn.metrics import confusion_matrix
 from collections import OrderedDict
 from sklearn.model_selection import GridSearchCV
@@ -24,12 +30,14 @@ app = Flask(__name__)
 train_data = None
 
 # Load the trained model
-with open('model.pkl', 'rb') as file:
+with open("model.pkl", "rb") as file:
     model = pickle.load(file)
 
-@app.route('/')
+
+@app.route("/")
 def home():
-    return render_template('index.html')
+    return render_template("index.html")
+
 
 def preprocess_function(text):
     # Preprocess the input text (similar to what was done during training)
@@ -38,33 +46,40 @@ def preprocess_function(text):
     processed_text = text.lower()  # Convert to lowercase
     return processed_text
 
-@app.route('/predict', methods=['POST'])
+
+@app.route("/predict", methods=["POST"])
 def predict():
     # Get the review text from the form
     global model, train_data
-    review = request.form['review']
-      
+    review = request.form["review"]
+
     # Preprocess the review text (similar to what you did in feature engineering)
     # You might need to define preprocessing functions here
-    
+
     # Make predictions using the loaded model
     # You need to transform the input data similar to how you preprocessed the training data
     # Then, use model.predict() to get predictions
     # prediction = model.predict([review])  # Assuming model.predict() takes a list of reviews
 
     # Preprocess the input data
-    preprocessed_text = preprocess_function(review)  # Replace preprocess_function with your actual preprocessing function
-    
+    preprocessed_text = preprocess_function(
+        review
+    )  # Replace preprocess_function with your actual preprocessing function
+
     # Vectorize the preprocessed input data using TF-IDF
     tfidf_vectorizer = TfidfVectorizer()
-    tfidf_vectorizer.fit(train_data)  # Assuming train_data is the training data used to fit the vectorizer
+    tfidf_vectorizer.fit(
+        train_data
+    )  # Assuming train_data is the training data used to fit the vectorizer
     input_vector = tfidf_vectorizer.transform([preprocessed_text])
-    
+
     # Now you can pass the input_vector to your model for prediction
     prediction = model.predict(input_vector)
-    
+
     # Render the prediction result page with the prediction
-    return render_template('result.html', prediction='Fake' if prediction[0] == 1 else 'Authentic')
+    return render_template(
+        "result.html", prediction="Fake" if prediction[0] == 1 else "Authentic"
+    )
 
 
 pd.options.mode.chained_assignment = None
@@ -73,7 +88,7 @@ pd.options.mode.chained_assignment = None
 def load_data():
     print("Loading Data from Database")
     conn = sqlite3.connect("yelpResData.db")
-    conn.text_factory = lambda x: str(x, 'gb2312', 'ignore')
+    conn.text_factory = lambda x: str(x, "gb2312", "ignore")
     cursor = conn.cursor()
 
     # Table Names
@@ -90,20 +105,27 @@ def load_data():
 
     # Create Review DataFrame
     cursor.execute(
-        "SELECT reviewID, reviewerID, restaurantID, date, rating, usefulCount as reviewUsefulCount, reviewContent, flagged FROM review WHERE flagged in ('Y','N')")
-    review_df = pd.DataFrame(cursor.fetchall(), columns=[column[0] for column in cursor.description])
+        "SELECT reviewID, reviewerID, restaurantID, date, rating, usefulCount as reviewUsefulCount, reviewContent, flagged FROM review WHERE flagged in ('Y','N')"
+    )
+    review_df = pd.DataFrame(
+        cursor.fetchall(), columns=[column[0] for column in cursor.description]
+    )
 
     # Create Reviewer DataFrame
     cursor.execute("SELECT * FROM reviewer")
-    reviewer_df = pd.DataFrame(cursor.fetchall(), columns=[column[0] for column in cursor.description])
+    reviewer_df = pd.DataFrame(
+        cursor.fetchall(), columns=[column[0] for column in cursor.description]
+    )
 
     # Create Restaurant DataFrame
     cursor.execute("SELECT restaurantID, rating as restaurantRating FROM restaurant")
-    restaurant_df = pd.DataFrame(cursor.fetchall(), columns=[column[0] for column in cursor.description])
+    restaurant_df = pd.DataFrame(
+        cursor.fetchall(), columns=[column[0] for column in cursor.description]
+    )
 
     # Merge all DataFrames
-    review_reviewer_df = review_df.merge(reviewer_df, on='reviewerID', how='inner')
-    df = review_reviewer_df.merge(restaurant_df, on='restaurantID', how='inner')
+    review_reviewer_df = review_df.merge(reviewer_df, on="reviewerID", how="inner")
+    df = review_reviewer_df.merge(restaurant_df, on="restaurantID", how="inner")
 
     # Graph of Data Distribution
     # fig, ax = plt.subplots(figsize=(6, 4))
@@ -117,13 +139,14 @@ def load_data():
 def data_cleaning(df):
     print("Cleaning Data")
     # Removing \n from date field
-    for i in range(len(df['date'])):
-        if df['date'][i][0] == '\n':
-            df.loc[i, 'date'] = df.loc[i, 'date'][1:]
+    for i in range(len(df["date"])):
+        if df["date"][i][0] == "\n":
+            df.loc[i, "date"] = df.loc[i, "date"][1:]
 
     # Making yelpJoinDate Format Uniform
-    df['yelpJoinDate'] = df['yelpJoinDate'].apply(
-        lambda x: datetime.strftime(datetime.strptime(x, '%B %Y'), '01/%m/%Y'))
+    df["yelpJoinDate"] = df["yelpJoinDate"].apply(
+        lambda x: datetime.strftime(datetime.strptime(x, "%B %Y"), "01/%m/%Y")
+    )
 
     # Removing emtpy cells
     if len(np.where(pd.isnull(df))) > 2:
@@ -132,18 +155,19 @@ def data_cleaning(df):
 
     # Pre-processing Text Reviews
     # Remove Stop Words
-    stop = stopwords.words('english')
-    df['reviewContent'] = df['reviewContent'].apply(
-        lambda x: ' '.join(word for word in x.split() if word not in stop))
+    stop = stopwords.words("english")
+    df["reviewContent"] = df["reviewContent"].apply(
+        lambda x: " ".join(word for word in x.split() if word not in stop)
+    )
 
     # Remove Punctuations
-    tokenizer = RegexpTokenizer(r'\w+')
-    df['reviewContent'] = df['reviewContent'].apply(
-        lambda x: ' '.join(word for word in tokenizer.tokenize(x)))
+    tokenizer = RegexpTokenizer(r"\w+")
+    df["reviewContent"] = df["reviewContent"].apply(
+        lambda x: " ".join(word for word in tokenizer.tokenize(x))
+    )
 
     # Lowercase Words
-    df['reviewContent'] = df['reviewContent'].apply(
-        lambda x: x.lower())
+    df["reviewContent"] = df["reviewContent"].apply(lambda x: x.lower())
     print("Data Cleaning Complete")
     return df
 
@@ -151,17 +175,16 @@ def data_cleaning(df):
 def feature_engineering(df):
     print("Feature Engineering: Creating New Features")
     # Maximum Number of Reviews per day per reviewer
-    mnr_df1 = df[['reviewerID', 'date']].copy()
-    mnr_df2 = mnr_df1.groupby(by=['date', 'reviewerID']).size().reset_index(name='mnr')
-    mnr_df2['mnr'] = mnr_df2['mnr'] / mnr_df2['mnr'].max()
-    df = df.merge(mnr_df2, on=['reviewerID', 'date'], how='inner')
+    mnr_df1 = df[["reviewerID", "date"]].copy()
+    mnr_df2 = mnr_df1.groupby(by=["date", "reviewerID"]).size().reset_index(name="mnr")
+    mnr_df2["mnr"] = mnr_df2["mnr"] / mnr_df2["mnr"].max()
+    df = df.merge(mnr_df2, on=["reviewerID", "date"], how="inner")
 
     # Review Length
-    df['rl'] = df['reviewContent'].apply(
-        lambda x: len(x.split()))
+    df["rl"] = df["reviewContent"].apply(lambda x: len(x.split()))
 
     # Review Deviation
-    df['rd'] = abs(df['rating'] - df['restaurantRating']) / 4
+    df["rd"] = abs(df["rating"] - df["restaurantRating"]) / 4
 
     # Maximum cosine similarity
     review_data = df
@@ -175,22 +198,24 @@ def feature_engineering(df):
         else:
             res[row[1].reviewerID] = [row[1].reviewContent]
 
-    individual_reviewer = [{'reviewerID': k, 'reviewContent': v} for k, v in res.items()]
+    individual_reviewer = [
+        {"reviewerID": k, "reviewContent": v} for k, v in res.items()
+    ]
     df2 = dict()
     # df2['reviewerID'] = pd.Series([])
-    df2['reviewerID'] = pd.Series([], dtype=object)
+    df2["reviewerID"] = pd.Series([], dtype=object)
     # df2['Maximum Content Similarity'] = pd.Series([])
-    df2['Maximum Content Similarity'] = pd.Series([], dtype=object)
+    df2["Maximum Content Similarity"] = pd.Series([], dtype=object)
     vector = TfidfVectorizer(min_df=1)
     count = -1
     for reviewer_data in individual_reviewer:
         count = count + 1
         # Handle Null/single review gracefully -24-Apr-2019
         try:
-            tfidf = vector.fit_transform(reviewer_data['reviewContent'])
+            tfidf = vector.fit_transform(reviewer_data["reviewContent"])
         except:
             pass
-        cosine = 1 - pairwise_distances(tfidf, metric='cosine')
+        cosine = 1 - pairwise_distances(tfidf, metric="cosine")
 
         np.fill_diagonal(cosine, -np.inf)
         max = cosine.max()
@@ -198,10 +223,10 @@ def feature_engineering(df):
         # To handle reviewier with just 1 review
         if max == -np.inf:
             max = 0
-        df2['reviewerID'][count] = reviewer_data['reviewerID']
-        df2['Maximum Content Similarity'][count] = max
+        df2["reviewerID"][count] = reviewer_data["reviewerID"]
+        df2["Maximum Content Similarity"][count] = max
 
-    df3 = pd.DataFrame(df2, columns=['reviewerID', 'Maximum Content Similarity'])
+    df3 = pd.DataFrame(df2, columns=["reviewerID", "Maximum Content Similarity"])
 
     # left outer join on original datamatrix and cosine dataframe -24-Apr-2019
     df = pd.merge(review_data, df3, on="reviewerID", how="left")
@@ -217,10 +242,10 @@ def under_sampling(df):
     # print("Authentic", len(df[(df['flagged'] == 'N')]))
     # print("Fake", len(df[(df['flagged'] == 'Y')]))
 
-    sample_size = len(df[(df['flagged'] == 'Y')])
+    sample_size = len(df[(df["flagged"] == "Y")])
 
-    authentic_reviews_df = df[df['flagged'] == 'N']
-    fake_reviews_df = df[df['flagged'] == 'Y']
+    authentic_reviews_df = df[df["flagged"] == "N"]
+    fake_reviews_df = df[df["flagged"] == "Y"]
 
     authentic_reviews_us_df = authentic_reviews_df.sample(sample_size)
     under_sampled_df = pd.concat([authentic_reviews_us_df, fake_reviews_df], axis=0)
@@ -239,13 +264,29 @@ def under_sampling(df):
 
 def semi_supervised_learning(df, model, algorithm, threshold=0.8, iterations=40):
     df = df.copy()
-    print("Training "+algorithm+" Model")
-    labels = df['flagged']
+    print("Training " + algorithm + " Model")
+    labels = df["flagged"]
 
-    df.drop(['reviewID', 'reviewerID', 'restaurantID', 'date', 'name', 'location', 'yelpJoinDate', 'flagged',
-             'reviewContent', 'restaurantRating'], axis=1, inplace=True)
+    df.drop(
+        [
+            "reviewID",
+            "reviewerID",
+            "restaurantID",
+            "date",
+            "name",
+            "location",
+            "yelpJoinDate",
+            "flagged",
+            "reviewContent",
+            "restaurantRating",
+        ],
+        axis=1,
+        inplace=True,
+    )
 
-    train_data, test_data, train_label, test_label = train_test_split(df, labels, test_size=0.25, random_state=42)
+    train_data, test_data, train_label, test_label = train_test_split(
+        df, labels, test_size=0.25, random_state=42
+    )
 
     test_data_copy = test_data.copy()
     test_label_copy = test_label.copy()
@@ -295,46 +336,66 @@ def semi_supervised_learning(df, model, algorithm, threshold=0.8, iterations=40)
     predicted_labels = model.predict(test_data_copy)
 
     # print('Best Params : ', grid_clf_acc.best_params_)
-    print(algorithm + ' Model Results')
-    print('--' * 20)
-    print('Accuracy Score : ' + str(accuracy_score(test_label_copy, predicted_labels)))
-    print('Precision Score : ' + str(precision_score(test_label_copy, predicted_labels, pos_label="Y")))
-    print('Recall Score : ' + str(recall_score(test_label_copy, predicted_labels, pos_label="Y")))
-    print('F1 Score : ' + str(f1_score(test_label_copy, predicted_labels, pos_label="Y")))
-    print('Confusion Matrix : \n' + str(confusion_matrix(test_label_copy, predicted_labels)))
-    plot_confusion_matrix(test_label_copy, predicted_labels, classes=['N', 'Y'],
-                          title=algorithm + ' Confusion Matrix').show()
+    print(algorithm + " Model Results")
+    print("--" * 20)
+    print("Accuracy Score : " + str(accuracy_score(test_label_copy, predicted_labels)))
+    print(
+        "Precision Score : "
+        + str(precision_score(test_label_copy, predicted_labels, pos_label="Y"))
+    )
+    print(
+        "Recall Score : "
+        + str(recall_score(test_label_copy, predicted_labels, pos_label="Y"))
+    )
+    print(
+        "F1 Score : " + str(f1_score(test_label_copy, predicted_labels, pos_label="Y"))
+    )
+    print(
+        "Confusion Matrix : \n"
+        + str(confusion_matrix(test_label_copy, predicted_labels))
+    )
+    plot_confusion_matrix(
+        test_label_copy,
+        predicted_labels,
+        classes=["N", "Y"],
+        title=algorithm + " Confusion Matrix",
+    ).show()
 
-
-# def plot_confusion_matrix(y_true, y_pred, classes, title=None, cmap=plt.cm.Blues):
+    # def plot_confusion_matrix(y_true, y_pred, classes, title=None, cmap=plt.cm.Blues):
     # Compute confusion matrix
     cm = confusion_matrix(y_true, y_pred)
     # Only use the labels that appear in the data
 
     fig, ax = plt.subplots()
-    im = ax.imshow(cm, interpolation='nearest', cmap=cmap)
+    im = ax.imshow(cm, interpolation="nearest", cmap=cmap)
     ax.figure.colorbar(im, ax=ax)
     # We want to show all ticks...
-    ax.set(xticks=np.arange(cm.shape[1]),
-           yticks=np.arange(cm.shape[0]),
-           xticklabels=classes,
-           yticklabels=classes,
-           title=title,
-           ylabel='True label',
-           xlabel='Predicted label')
+    ax.set(
+        xticks=np.arange(cm.shape[1]),
+        yticks=np.arange(cm.shape[0]),
+        xticklabels=classes,
+        yticklabels=classes,
+        title=title,
+        ylabel="True label",
+        xlabel="Predicted label",
+    )
 
     # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-             rotation_mode="anchor")
+    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
     # Loop over data dimensions and create text annotations.
-    fmt = 'd'
-    thresh = cm.max() / 2.
+    fmt = "d"
+    thresh = cm.max() / 2.0
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
-            ax.text(j, i, format(cm[i, j], fmt),
-                    ha="center", va="center",
-                    color="white" if cm[i, j] > thresh else "black")
+            ax.text(
+                j,
+                i,
+                format(cm[i, j], fmt),
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > thresh else "black",
+            )
     fig.tight_layout()
 
     return plt
@@ -347,12 +408,12 @@ def semi_supervised_learning(df, model, algorithm, threshold=0.8, iterations=40)
 #     df = feature_engineering(df)
 #     # df.to_csv('df.csv', sep=',', index=False)
 #     under_sampled_df = under_sampling(df)
-    
+
 #     # Define train_data here or retrieve it from under_sampled_df
 #     train_data = under_sampled_df.drop('flagged', axis=1)
-    
+
 #     rf = RandomForestClassifier(random_state=42, criterion='entropy', max_depth=14, max_features=train_data.shape[1], n_estimators=500)  # Using train_data's shape
-    
+
 #     nb = GaussianNB()
 
 #     semi_supervised_learning(under_sampled_df, model=rf, threshold=0.7, iterations=15, algorithm='Random Forest')
@@ -361,9 +422,8 @@ def semi_supervised_learning(df, model, algorithm, threshold=0.8, iterations=40)
 #     print("Time taken : ", end_time - start_time)
 
 
-# if __name__ == '__main__':  
+# if __name__ == '__main__':
 #     main()
-
 
 
 def main():
@@ -373,33 +433,55 @@ def main():
     df = data_cleaning(df)
     df = feature_engineering(df)
     under_sampled_df = under_sampling(df)
-    
+
     # Inspect the columns in train_data
-    print("Columns with dtype 'object':", under_sampled_df.select_dtypes(include=['object']).columns)
-    
+    print(
+        "Columns with dtype 'object':",
+        under_sampled_df.select_dtypes(include=["object"]).columns,
+    )
+
     # Encode the target variable 'flagged' using LabelEncoder
     label_encoder = LabelEncoder()
-    under_sampled_df['flagged'] = label_encoder.fit_transform(under_sampled_df['flagged'])
-    
-    train_data = under_sampled_df.drop(['reviewID', 'flagged', 'reviewerID', 'restaurantID', 'date', 'reviewContent', 'name', 'location', 'yelpJoinDate'], axis=1)
-    
+    under_sampled_df["flagged"] = label_encoder.fit_transform(
+        under_sampled_df["flagged"]
+    )
+
+    train_data = under_sampled_df.drop(
+        [
+            "reviewID",
+            "flagged",
+            "reviewerID",
+            "restaurantID",
+            "date",
+            "reviewContent",
+            "name",
+            "location",
+            "yelpJoinDate",
+        ],
+        axis=1,
+    )
+
     print("TDD with dtype 'object':", train_data.columns)
 
-    rf = RandomForestClassifier(random_state=42, criterion='entropy', max_depth=14, max_features=train_data.shape[1], n_estimators=500)
-    
+    rf = RandomForestClassifier(
+        random_state=42,
+        criterion="entropy",
+        max_depth=14,
+        max_features=train_data.shape[1],
+        n_estimators=500,
+    )
+
     # Train the Random Forest model
-    rf.fit(train_data, under_sampled_df['flagged'])
-    
+    rf.fit(train_data, under_sampled_df["flagged"])
+
     # Save the trained model to a file named 'model.pkl'
-    with open('model.pkl', 'wb') as file:
+    with open("model.pkl", "wb") as file:
         pickle.dump(rf, file)
-    
+
     end_time = time()
     print("Time taken : ", end_time - start_time)
     app.run(debug=True)
 
 
-if __name__ == '__main__':  
+if __name__ == "__main__":
     main()
-
-
