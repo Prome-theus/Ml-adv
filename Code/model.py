@@ -312,9 +312,8 @@ def main():
     )
 
     end_time = time()
-
     print("time taken : ", end_time - start_time)
-
+    return train_data
 
 if __name__ == "__main__":
-    main()
+    train_data = main()
